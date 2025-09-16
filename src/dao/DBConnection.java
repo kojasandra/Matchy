@@ -6,16 +6,24 @@ import java.sql.SQLException;
 
 public class DBConnection {
 
-    private static final String URL = "jdbc:mysql://localhost:3306/matchy";
-    private static final String USER = "root";   //
-    private static final String PASSWORD = "";   //
+    private static final String URL =
+            "jdbc:mysql://localhost:3306/matchy" +
+                    "?useUnicode=true&characterEncoding=UTF-8" +
+                    "&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true";
 
-    private static Connection connection;
+    private static final String USER = "root";
+    private static final String PASSWORD = "";
+
+    static {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("MySQL driver not found", e);
+        }
+    }
+
 
     public static Connection getConnection() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            connection = DriverManager.getConnection(URL, USER, PASSWORD);
-        }
-        return connection;
+        return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 }

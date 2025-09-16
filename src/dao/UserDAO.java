@@ -1,111 +1,127 @@
 package dao;
 
+import model.Skill;
 import model.User;
 
 import java.sql.*;
-import java.util.ArrayList;
+import java.util.*;
 
 public class UserDAO {
 
-    // CREATE (insert user)
     public void insertUser(User u) throws SQLException {
-        Connection conn = DBConnection.getConnection();
-        String sql = "INSERT INTO users (name, email, password, bio, location, role) VALUES (?, ?, ?, ?, ?, ?)";
-        PreparedStatement stmt = conn.prepareStatement(sql);
+        String sql = "INSERT INTO users (name, email, password, location, bio) VALUES (?,?,?,?,?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-        stmt.setString(1, u.getName());
-        stmt.setString(2, u.getEmail());
-        stmt.setString(3, u.getPassword());
-        stmt.setString(4, u.getBio());
-        stmt.setString(5, u.getLocation());
-        stmt.setString(6, u.getRole());
+            ps.setString(1, u.getName());
+            ps.setString(2, u.getEmail());
+            ps.setString(3, u.getPassword());
+            ps.setString(4, u.getLocation());
+            ps.setString(5, u.getBio());
+            ps.executeUpdate();
 
-        stmt.executeUpdate();
-        conn.close();
-    }
+            ResultSet keys = ps.getGeneratedKeys();
+            if (keys.next()) {
+                int userId = keys.getInt(1);
+                u.setId(userId);
 
-    // READ (all users)
-    public ArrayList<User> getAllUsers() throws SQLException {
-        ArrayList<User> lista = new ArrayList<>();
-        Connection conn = DBConnection.getConnection();
-
-        Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("SELECT * FROM users");
-
-        while (rs.next()) {
-            User u = new User(
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getString("email"),
-                    rs.getString("password"),
-                    rs.getString("bio"),
-                    rs.getString("location"),
-                    rs.getString("role"),
-                    rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null,
-                    rs.getTimestamp("last_login") != null ? rs.getTimestamp("last_login").toLocalDateTime() : null
-            );
-            lista.add(u);
+                if (u.getSkills() != null && !u.getSkills().isEmpty()) {
+                    String sqlSkill = "INSERT INTO user_skills (user_id, skill_id, level) VALUES (?,?,?)";
+                    try (PreparedStatement psSkill = conn.prepareStatement(sqlSkill)) {
+                        for (Skill s : u.getSkills()) {
+                            psSkill.setInt(1, userId);
+                            psSkill.setInt(2, s.getId());
+                            psSkill.setString(3, "basic");
+                            psSkill.addBatch();
+                        }
+                        psSkill.executeBatch();
+                    }
+                }
+            }
         }
-
-        conn.close();
-        return lista;
     }
 
-    // READ (find user by ID)
-    public User getUserById(int id) throws SQLException {
-        Connection conn = DBConnection.getConnection();
-        String sql = "SELECT * FROM users WHERE id = ?";
-        PreparedStatement stmt = conn.prepareStatement(sql);
-        stmt.setInt(1, id);
+    public List<User> getAllUsers() throws SQLException {
+        String sql = "SELECT u.id, u.name, u.email, u.location, u.bio, " +
+                "s.id AS skill_id, s.name AS skill_name, s.category " +
+                "FROM users u " +
+                "LEFT JOIN user_skills us ON u.id = us.user_id " +
+                "LEFT JOIN skills s ON us.skill_id = s.id " +
+                "ORDER BY u.id DESC";
 
-        ResultSet rs = stmt.executeQuery();
-        User u = null;
+        Map<Integer, User> map = new LinkedHashMap<>();
+        try (Connection conn = DBConnection.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
 
-        if (rs.next()) {
-            u = new User(
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getString("email"),
-                    rs.getString("password"),
-                    rs.getString("bio"),
-                    rs.getString("location"),
-                    rs.getString("role"),
-                    rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null,
-                    rs.getTimestamp("last_login") != null ? rs.getTimestamp("last_login").toLocalDateTime() : null
-            );
+            while (rs.next()) {
+                int userId = rs.getInt("id");
+                User u = map.get(userId);
+                if (u == null) {
+                    u = new User();
+                    u.setId(userId);
+                    u.setName(rs.getString("name"));
+                    u.setEmail(rs.getString("email"));
+                    u.setLocation(rs.getString("location"));
+                    u.setBio(rs.getString("bio"));
+                    u.setSkills(new ArrayList<>());
+                    map.put(userId, u);
+                }
+                int skillId = rs.getInt("skill_id");
+                if (skillId > 0) {
+                    Skill s = new Skill();
+                    s.setId(skillId);
+                    s.setName(rs.getString("skill_name"));
+                    s.setCategory(rs.getString("category"));
+                    u.getSkills().add(s);
+                }
+            }
         }
-
-        conn.close();
-        return u;
+        return new ArrayList<>(map.values());
     }
 
-    // UPDATE
-    public void updateUser(User u) throws SQLException {
-        Connection conn = DBConnection.getConnection();
-        String sql = "UPDATE users SET name=?, email=?, password=?, bio=?, location=?, role=?, last_login=? WHERE id=?";
-        PreparedStatement stmt = conn.prepareStatement(sql);
+    public List<User> search(String skillFilter) throws SQLException {
+        String sql = "SELECT u.id, u.name, u.email, u.location, u.bio, " +
+                "s.id AS skill_id, s.name AS skill_name, s.category " +
+                "FROM users u " +
+                "LEFT JOIN user_skills us ON u.id = us.user_id " +
+                "LEFT JOIN skills s ON us.skill_id = s.id " +
+                "WHERE (? = '' OR s.name = ?) " +
+                "ORDER BY u.id DESC";
 
-        stmt.setString(1, u.getName());
-        stmt.setString(2, u.getEmail());
-        stmt.setString(3, u.getPassword());
-        stmt.setString(4, u.getBio());
-        stmt.setString(5, u.getLocation());
-        stmt.setString(6, u.getRole());
-        stmt.setTimestamp(7, u.getLastLogin() != null ? Timestamp.valueOf(u.getLastLogin()) : null);
-        stmt.setInt(8, u.getId());
+        Map<Integer, User> map = new LinkedHashMap<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-        stmt.executeUpdate();
-        conn.close();
-    }
+            ps.setString(1, skillFilter == null ? "" : skillFilter);
+            ps.setString(2, skillFilter == null ? "" : skillFilter);
 
-    // DELETE
-    public void deleteUserById(int id) throws SQLException {
-        Connection conn = DBConnection.getConnection();
-        String sql = "DELETE FROM users WHERE id=?";
-        PreparedStatement stmt = conn.prepareStatement(sql);
-        stmt.setInt(1, id);
-
-        stmt.executeUpdate();
-        conn.close();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int userId = rs.getInt("id");
+                    User u = map.get(userId);
+                    if (u == null) {
+                        u = new User();
+                        u.setId(userId);
+                        u.setName(rs.getString("name"));
+                        u.setEmail(rs.getString("email"));
+                        u.setLocation(rs.getString("location"));
+                        u.setBio(rs.getString("bio"));
+                        u.setSkills(new ArrayList<>());
+                        map.put(userId, u);
+                    }
+                    int skillId = rs.getInt("skill_id");
+                    if (skillId > 0) {
+                        Skill s = new Skill(
+                                rs.getInt("skill_id"),
+                                rs.getString("skill_name"),
+                                rs.getString("category")
+                        );
+                        u.getSkills().add(s);
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(map.values());
     }
 }
