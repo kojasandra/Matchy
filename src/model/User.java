@@ -11,6 +11,9 @@ public class User {
     private String location;
     private String bio;
     private List<Skill> skills = new ArrayList<>();
+    private String goal;
+    private String workingStyle;
+    private Integer availability;
 
     public User() {}
 
@@ -40,4 +43,13 @@ public class User {
 
     public List<Skill> getSkills() { return skills; }
     public void setSkills(List<Skill> skills) { this.skills = skills; }
+
+    public String getGoal() { return goal; }
+    public void setGoal(String goal) { this.goal = goal; }
+
+    public String getWorkingStyle() { return workingStyle; }
+    public void setWorkingStyle(String workingStyle) { this.workingStyle = workingStyle; }
+
+    public Integer getAvailability() { return availability; }
+    public void setAvailability(Integer availability) { this.availability = availability; }
 }

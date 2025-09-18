@@ -124,4 +124,67 @@ public class UserDAO {
         }
         return new ArrayList<>(map.values());
     }
+
+    public void updateUser(User u) throws SQLException {
+        String sql = "UPDATE users SET name=?, email=?, password=?, location=?, bio=?, goal=?, working_style=?, availability=? WHERE id=?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, u.getName());
+            ps.setString(2, u.getEmail());
+            ps.setString(3, u.getPassword());
+            ps.setString(4, u.getLocation());
+            ps.setString(5, u.getBio());
+            ps.setInt(6, u.getId());
+
+            ps.executeUpdate();
+        }
+    }
+
+    public User login(String email, String password) throws SQLException {
+        String sql = "SELECT * FROM users WHERE email=? AND password=?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, email);
+            ps.setString(2, password);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    User u = new User();
+                    u.setId(rs.getInt("id"));
+                    u.setName(rs.getString("name"));
+                    u.setEmail(rs.getString("email"));
+                    u.setPassword(rs.getString("password"));
+                    u.setLocation(rs.getString("location"));
+                    u.setBio(rs.getString("bio"));
+
+                    return u;
+                }
+            }
+        }
+        return null;
+    }
+    public User getUserByEmailAndPassword(String email, String password) throws SQLException {
+        String sql = "SELECT * FROM users WHERE email=? AND password=?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, email);
+            ps.setString(2, password);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                User u = new User();
+                u.setId(rs.getInt("id"));
+                u.setName(rs.getString("name"));
+                u.setEmail(rs.getString("email"));
+                u.setPassword(rs.getString("password"));
+                u.setLocation(rs.getString("location"));
+                u.setBio(rs.getString("bio"));
+                return u;
+            }
+        }
+        return null;
+    }
+
+
 }

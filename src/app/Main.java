@@ -1,14 +1,11 @@
 package app;
 
-import UI.MainFrame;
-
-import javax.swing.*;
+import UI.LoginFrame;
 
 public class Main {
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            MainFrame frame = new MainFrame();
-            frame.setVisible(true);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            new LoginFrame().setVisible(true);
         });
     }
 }
